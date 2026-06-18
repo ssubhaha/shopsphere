@@ -47,14 +47,6 @@ git clone https://github.com/your-username/shopsphere.git
 
 3. Run using Live Server
 
-## Screenshots
-
-(Add screenshots after completing the project)
-
-## Live Demo
-
-(Add Vercel link after deployment)
-
 ## Author
 
-Developed by Ria
+Developed by Subhaha Shanmuganathan
