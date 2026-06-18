@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Your ShopSphere Shopping Cart — review items and checkout securely." />
+  <title>Cart — ShopSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <script>(function(){const t=localStorage.getItem('shopsphere-theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light')})();</script>
+</head>
+<body>
+  <div id="navWrap"></div>
+
+  <main id="main" tabindex="-1">
+    <div style="padding-top:calc(var(--nav-h) + 2.5rem);padding-bottom:5rem;min-height:80vh" class="page-fade">
+      <div class="container">
+
+        <div class="section-heading">
+          <p class="section-heading__eyebrow">Review Your Selection</p>
+          <h1 class="section-heading__title">Shopping Cart</h1>
+        </div>
+
+        <div id="cartPageContent" style="display:grid;grid-template-columns:1fr 360px;gap:2rem;align-items:start">
+
+          <!-- Items list -->
+          <div>
+            <div id="cartPageItems" style="display:flex;flex-direction:column;gap:1rem"></div>
+            <div id="cartPageEmpty" style="display:none;text-align:center;padding:4rem 0">
+              <div style="font-size:3rem;margin-bottom:1rem">🛒</div>
+              <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:.5rem">Your cart is empty</h3>
+              <p style="color:var(--clr-text-3);margin-bottom:1.5rem">Browse our products and add something you love.</p>
+              <a href="../pages/products.html" class="btn btn--primary">Shop Now →</a>
+            </div>
+          </div>
+
+          <!-- Summary sidebar -->
+          <div id="cartSidebar" style="
+            background:var(--clr-surface-2);
+            border:1px solid var(--clr-border);
+            border-radius:var(--radius-lg);
+            padding:1.5rem;
+            position:sticky;top:calc(var(--nav-h) + 1rem);
+          ">
+            <h2 style="font-size:1.1rem;font-weight:700;margin-bottom:1.5rem">Order Summary</h2>
+            <div class="cart-summary">
+              <div class="cart-summary__row"><span>Subtotal</span><span id="summarySubtotal">₹0</span></div>
+              <div class="cart-summary__row"><span>Shipping</span><span id="summaryShipping">—</span></div>
+              <div class="cart-summary__row"><span>Tax (GST 18%)</span><span id="summaryTax">₹0</span></div>
+              <div class="cart-summary__row total"><span>Total</span><span class="val" id="summaryTotal">₹0</span></div>
+            </div>
+
+            <!-- Promo code -->
+            <div style="margin:1rem 0;display:flex;gap:.5rem">
+              <input id="promoInput" type="text" placeholder="Promo code"
+                     style="flex:1;padding:8px 12px;background:var(--clr-surface-3);border:1px solid var(--clr-border);border-radius:var(--radius-sm);color:var(--clr-text-1);font-family:var(--font-body);font-size:.85rem"/>
+              <button class="btn btn--ghost btn--sm" onclick="applyPromo()">Apply</button>
+            </div>
+            <p id="promoMsg" style="font-size:.75rem;color:var(--clr-success);display:none">✓ Code SPHERE20 applied — 20% off!</p>
+
+            <button class="btn btn--primary btn--full" id="checkoutBtn" style="margin-top:1rem">
+              🔒 Secure Checkout
+            </button>
+            <a href="../pages/products.html" class="btn btn--ghost btn--full" style="margin-top:.5rem;display:flex;justify-content:center">
+              ← Continue Shopping
+            </a>
+
+            <!-- Trust badges -->
+            <div style="display:flex;justify-content:center;gap:1rem;margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid var(--clr-border)">
+              ${['🔒 Secure','↩️ Free Returns','🚚 Fast Delivery'].map(t=>`
+                <span style="font-size:.7rem;color:var(--clr-text-3);text-align:center;white-space:nowrap">${t}</span>`).join('')}
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="footerWrap"></div>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/theme.js"></script>
+  <script src="../js/cart.js"></script>
+  <script src="../js/product.js"></script>
+  <script>
+    /* Minimal toast for this page */
+    const Toast = {
+      show(msg, type='', icon='ℹ️') {
+        let c = document.getElementById('toastContainer');
+        if (!c) { c=document.createElement('div'); c.id='toastContainer'; c.className='toast-container'; document.body.appendChild(c); }
+        const t=document.createElement('div'); t.className=`toast ${type}`;
+        t.innerHTML=`<span class="toast__icon">${icon}</span><span class="toast__msg">${msg}</span>`;
+        c.appendChild(t);
+        setTimeout(()=>{ t.classList.add('out'); t.addEventListener('animationend',()=>t.remove()); }, 3000);
+      }
+    };
+
+    let cartItems = JSON.parse(localStorage.getItem('shopsphere-cart')||'[]');
+    let promoApplied = false;
+
+    function stars(r) { return '★'.repeat(Math.floor(r)) + (r%1>=.5?'½':'') + '☆'.repeat(5-Math.floor(r)-(r%1>=.5?1:0)); }
+
+    function renderPage() {
+      const itemsEl = document.getElementById('cartPageItems');
+      const emptyEl = document.getElementById('cartPageEmpty');
+      const sideBar  = document.getElementById('cartSidebar');
+
+      if (cartItems.length === 0) {
+        itemsEl.style.display = 'none';
+        emptyEl.style.display = 'block';
+        sideBar.style.display = 'none';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      itemsEl.style.display = 'flex';
+      sideBar.style.display = 'block';
+
+      itemsEl.innerHTML = cartItems.map(item => `
+        <div class="cart-item" style="grid-template-columns:100px 1fr;padding:1.25rem" data-id="${item.id}">
+          <img class="cart-item__img" src="${item.image}" alt="${item.name}"
+               style="width:100px;height:100px;border-radius:var(--radius-md);object-fit:cover"/>
+          <div class="cart-item__info">
+            <p class="cart-item__cat">${item.category}</p>
+            <p class="cart-item__name" style="font-size:1rem">${item.name}</p>
+            <p style="font-size:.75rem;color:var(--clr-amber)">${stars(item.rating)} <span style="color:var(--clr-text-3)">(${item.reviews})</span></p>
+            <div class="cart-item__controls" style="margin-top:.75rem">
+              <div class="cart-item__qty">
+                <button onclick="changeQty(${item.id}, -1)" aria-label="Decrease">−</button>
+                <span>${item.qty}</span>
+                <button onclick="changeQty(${item.id}, +1)" aria-label="Increase">+</button>
+              </div>
+              <span class="cart-item__price">₹${(item.price * item.qty).toLocaleString('en-IN')}</span>
+              <button class="cart-item__remove" onclick="removeItem(${item.id})">✕ Remove</button>
+            </div>
+          </div>
+        </div>`).join('');
+
+      updateSummary();
+    }
+
+    function updateSummary() {
+      const sub      = cartItems.reduce((s,i) => s + i.price * i.qty, 0);
+      const discount = promoApplied ? sub * 0.2 : 0;
+      const subtotal = sub - discount;
+      const shipping = subtotal > 999 ? 0 : 99;
+      const tax      = subtotal * 0.18;   // GST 18%
+      const total    = subtotal + shipping + tax;
+
+      document.getElementById('summarySubtotal').textContent = `₹${Math.round(subtotal).toLocaleString('en-IN')}`;
+      document.getElementById('summaryShipping').textContent = shipping===0 ? 'Free' : `₹${shipping}`;
+      document.getElementById('summaryTax').textContent      = `₹${Math.round(tax).toLocaleString('en-IN')} (GST)`;
+      document.getElementById('summaryTotal').textContent    = `₹${Math.round(total).toLocaleString('en-IN')}`;
+    }
+
+    function saveAndRender() {
+      localStorage.setItem('shopsphere-cart', JSON.stringify(cartItems));
+      renderPage();
+    }
+
+    function removeItem(id) {
+      cartItems = cartItems.filter(i => i.id !== id);
+      saveAndRender();
+      Toast.show('Item removed', '', '✕');
+    }
+
+    function changeQty(id, delta) {
+      const item = cartItems.find(i => i.id === id);
+      if (!item) return;
+      item.qty = Math.max(1, item.qty + delta);
+      saveAndRender();
+    }
+
+    function applyPromo() {
+      const code = document.getElementById('promoInput').value.trim().toUpperCase();
+      const msg  = document.getElementById('promoMsg');
+      if (code === 'SPHERE20' && !promoApplied) {
+        promoApplied = true;
+        msg.style.display = 'block';
+        updateSummary();
+        Toast.show('Promo code applied! 20% off', 'success', '🎉');
+      } else if (promoApplied) {
+        Toast.show('Code already applied', '', 'ℹ️');
+      } else {
+        Toast.show('Invalid promo code', 'error', '❌');
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // Nav
+      document.getElementById('navWrap').innerHTML = `
+        <nav class="navbar">
+          <div class="container navbar__inner">
+            <a href="../index.html" class="navbar__brand">
+              <div class="navbar__brand-icon">✦</div>
+              <span class="navbar__brand-text">ShopSphere</span>
+            </a>
+            <ul class="navbar__links">
+              <li><a href="../pages/home.html"     class="navbar__link">Home</a></li>
+              <li><a href="../pages/products.html" class="navbar__link">Products</a></li>
+              <li><a href="../pages/cart.html"     class="navbar__link active">Cart</a></li>
+              <li><a href="../pages/about.html"    class="navbar__link">About</a></li>
+            </ul>
+            <div class="navbar__actions">
+              <button class="navbar__theme-btn" data-theme-toggle data-theme-icon>🌙</button>
+              <button class="navbar__hamburger" id="hamburger"><span></span><span></span><span></span></button>
+            </div>
+          </div>
+          <div class="navbar__mobile-menu" id="mobileMenu">
+            <a href="../pages/home.html"     class="navbar__link">Home</a>
+            <a href="../pages/products.html" class="navbar__link">Products</a>
+            <a href="../pages/cart.html"     class="navbar__link">Cart</a>
+            <a href="../pages/about.html"    class="navbar__link">About</a>
+          </div>
+        </nav>`;
+
+      document.getElementById('footerWrap').innerHTML = `
+        <footer class="footer"><div class="container">
+          <div class="footer__bottom" style="padding-top:0;border-top:none">
+            <p>© 2026 ShopSphere. All Rights Reserved.</p>
+          </div>
+        </div></footer>`;
+
+      ThemeManager.init();
+
+      const h = document.getElementById('hamburger');
+      const m = document.getElementById('mobileMenu');
+      h?.addEventListener('click',()=>{const o=m.classList.toggle('open');h.classList.toggle('open',o);});
+
+      renderPage();
+
+      document.getElementById('checkoutBtn')?.addEventListener('click', () => {
+        if (cartItems.length === 0) return;
+        Toast.show('Processing your order…', 'success', '🔒');
+        setTimeout(() => {
+          cartItems = [];
+          localStorage.removeItem('shopsphere-cart');
+          renderPage();
+          Toast.show('Order placed! Thank you 🎉', 'success', '✅');
+        }, 1500);
+      });
+
+      // Responsive: stack on mobile
+      if (window.innerWidth < 768) {
+        const grid = document.getElementById('cartPageContent');
+        if (grid) grid.style.gridTemplateColumns = '1fr';
+      }
+    });
+  </script>
+</body>
+</html>

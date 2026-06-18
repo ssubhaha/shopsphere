@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Browse all ShopSphere products — electronics, fashion, home, sports and beauty." />
+  <title>Products — ShopSphere</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="../css/style.css" />
+  <link rel="stylesheet" href="../css/components.css" />
+  <link rel="stylesheet" href="../css/responsive.css" />
+  <script>(function(){const t=localStorage.getItem('shopsphere-theme')||'dark';if(t==='light')document.documentElement.setAttribute('data-theme','light')})();</script>
+</head>
+<body>
+
+  <div id="navWrap"></div>
+
+  <main id="main" tabindex="-1">
+    <div style="padding-top:calc(var(--nav-h) + 2.5rem);padding-bottom:5rem" class="page-fade">
+      <div class="container">
+
+        <!-- Header -->
+        <div class="section-heading">
+          <p class="section-heading__eyebrow">Our Catalogue</p>
+          <h1 class="section-heading__title">All Products</h1>
+          <p class="section-heading__sub">Discover our full range of premium products across every category.</p>
+        </div>
+
+        <!-- Search -->
+        <div class="search-wrap" id="searchWrap">
+          <span class="search-wrap__icon">🔍</span>
+          <input id="searchInput" type="search" class="search-input"
+                 placeholder="Search products…" aria-label="Search products" />
+          <button class="search-clear" id="searchClear" aria-label="Clear search">✕</button>
+        </div>
+
+        <!-- Filters -->
+        <div class="filters" role="group" aria-label="Filter by category" id="filtersBar"></div>
+
+        <!-- Results count -->
+        <p id="resultsCount" style="font-size:.85rem;color:var(--clr-text-3);margin-bottom:1.5rem"></p>
+
+        <!-- Grid -->
+        <div class="product-grid" id="productsGrid"></div>
+
+      </div>
+    </div>
+  </main>
+
+  <div id="footerWrap"></div>
+  <div id="cartWrap"></div>
+  <div id="modalWrap"></div>
+
+  <script src="../js/data.js"></script>
+  <script src="../js/theme.js"></script>
+  <script src="../js/cart.js"></script>
+  <script src="../js/product.js"></script>
+  <script>
+    /* ── Shared chrome builder (inline, minimal) ── */
+    function mountNav(active) {
+      document.getElementById('navWrap').innerHTML = `
+        <nav class="navbar">
+          <div class="container navbar__inner">
+            <a href="../index.html" class="navbar__brand">
+              <div class="navbar__brand-icon">✦</div>
+              <span class="navbar__brand-text">ShopSphere</span>
+            </a>
+            <ul class="navbar__links">
+              <li><a href="../pages/home.html"     class="navbar__link ${active==='home'?'active':''}">Home</a></li>
+              <li><a href="../pages/products.html" class="navbar__link ${active==='products'?'active':''}">Products</a></li>
+              <li><a href="../pages/cart.html"     class="navbar__link ${active==='cart'?'active':''}">Cart</a></li>
+              <li><a href="../pages/about.html"    class="navbar__link ${active==='about'?'active':''}">About</a></li>
+            </ul>
+            <div class="navbar__actions">
+              <button class="navbar__theme-btn" data-theme-toggle data-theme-icon aria-label="Toggle theme">🌙</button>
+              <button class="navbar__cart-btn" data-open-cart>
+                🛒 <span class="cart-label">Cart</span>
+                <span class="navbar__cart-count" data-cart-count>0</span>
+              </button>
+              <button class="navbar__hamburger" id="hamburger"><span></span><span></span><span></span></button>
+            </div>
+          </div>
+          <div class="navbar__mobile-menu" id="mobileMenu">
+            <a href="../pages/home.html"     class="navbar__link">Home</a>
+            <a href="../pages/products.html" class="navbar__link">Products</a>
+            <a href="../pages/cart.html"     class="navbar__link">Cart</a>
+            <a href="../pages/about.html"    class="navbar__link">About</a>
+          </div>
+        </nav>`;
+      const h = document.getElementById('hamburger');
+      const m = document.getElementById('mobileMenu');
+      h?.addEventListener('click',()=>{const o=m.classList.toggle('open');h.classList.toggle('open',o);});
+    }
+
+    function mountCart() {
+      document.getElementById('cartWrap').innerHTML = `
+        <div class="cart-overlay" id="cartOverlay"></div>
+        <aside class="cart-drawer" id="cartDrawer">
+          <div class="cart-drawer__header">
+            <h2 class="cart-drawer__title">Your Cart</h2>
+            <button class="cart-drawer__close" id="cartCloseBtn">✕</button>
+          </div>
+          <div class="cart-drawer__items" id="cartItems"></div>
+          <div class="cart-empty" id="cartEmpty" style="display:flex">
+            <div class="cart-empty__icon">🛒</div>
+            <p>Your cart is empty.</p>
+          </div>
+          <div class="cart-drawer__footer" id="cartFooter" style="display:none">
+            <div class="cart-summary">
+              <div class="cart-summary__row"><span>Subtotal</span><span id="summarySubtotal">₹0</span></div>
+              <div class="cart-summary__row"><span>Shipping</span><span id="summaryShipping">—</span></div>
+              <div class="cart-summary__row"><span>Tax (GST 18%)</span><span id="summaryTax">₹0</span></div>
+              <div class="cart-summary__row total"><span>Total</span><span class="val" id="summaryTotal">₹0</span></div>
+            </div>
+            <button class="btn btn--primary btn--full" id="checkoutBtn">🔒 Secure Checkout</button>
+            <button class="btn btn--ghost btn--full" onclick="Cart.closeDrawer()">Continue Shopping</button>
+          </div>
+        </aside>`;
+    }
+
+    /* ── State ── */
+    const CATS = [
+      {id:'all',label:'All Products'},
+      {id:'electronics',label:'Electronics'},
+      {id:'fashion',label:'Fashion'},
+      {id:'home',label:'Home & Living'},
+      {id:'sports',label:'Sports'},
+      {id:'beauty',label:'Beauty'},
+    ];
+
+    let activeCategory = 'all';
+    let searchQuery    = '';
+    let sortMode       = 'default';
+
+    function buildFilters() {
+      const bar = document.getElementById('filtersBar');
+      bar.innerHTML = CATS.map(c => `
+        <button class="filter-pill ${activeCategory===c.id?'active':''}"
+                data-cat="${c.id}" aria-pressed="${activeCategory===c.id}">${c.label}</button>
+      `).join('') + `
+        <select class="sort-select" id="sortSelect" aria-label="Sort products">
+          <option value="default">Sort: Default</option>
+          <option value="price-asc">Price: Low → High</option>
+          <option value="price-desc">Price: High → Low</option>
+          <option value="rating">Top Rated</option>
+          <option value="name">Name A–Z</option>
+        </select>`;
+
+      document.querySelectorAll('.filter-pill').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeCategory = btn.dataset.cat;
+          document.querySelectorAll('.filter-pill').forEach(b => {
+            b.classList.toggle('active', b===btn);
+            b.setAttribute('aria-pressed', b===btn);
+          });
+          applyFilters();
+        });
+      });
+
+      document.getElementById('sortSelect').addEventListener('change', e => {
+        sortMode = e.target.value; applyFilters();
+      });
+    }
+
+    function applyFilters() {
+      let results = [...PRODUCTS];
+      if (activeCategory !== 'all') results = results.filter(p => p.category === activeCategory);
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        results = results.filter(p =>
+          p.name.toLowerCase().includes(q) ||
+          p.category.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q)
+        );
+      }
+      switch (sortMode) {
+        case 'price-asc':  results.sort((a,b)=>a.price-b.price); break;
+        case 'price-desc': results.sort((a,b)=>b.price-a.price); break;
+        case 'rating':     results.sort((a,b)=>b.rating-a.rating); break;
+        case 'name':       results.sort((a,b)=>a.name.localeCompare(b.name)); break;
+      }
+      const c = document.getElementById('resultsCount');
+      if (c) c.textContent = `${results.length} product${results.length!==1?'s':''} found`;
+      ProductManager.renderGrid('productsGrid', results);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      mountNav('products');
+      mountCart();
+      document.getElementById('modalWrap').innerHTML = '<div class="modal-overlay" id="productModal"></div>';
+      document.getElementById('footerWrap').innerHTML = `
+        <footer class="footer">
+          <div class="container">
+            <div class="footer__bottom" style="padding-top:0;border-top:none">
+              <p>© 2026 ShopSphere. All Rights Reserved.</p>
+            </div>
+          </div>
+        </footer>`;
+
+      ThemeManager.init();
+      Cart.init();
+      buildFilters();
+
+      // Search
+      const si = document.getElementById('searchInput');
+      const sc = document.getElementById('searchClear');
+      const sw = document.getElementById('searchWrap');
+      let debounce;
+      si?.addEventListener('input', e => {
+        searchQuery = e.target.value;
+        sw?.classList.toggle('has-value', !!searchQuery);
+        clearTimeout(debounce);
+        debounce = setTimeout(applyFilters, 280);
+      });
+      sc?.addEventListener('click', () => {
+        searchQuery = ''; if(si) si.value='';
+        sw?.classList.remove('has-value'); applyFilters();
+      });
+
+      // Initial render with skeleton
+      ProductManager.renderSkeletons('productsGrid', 8);
+      setTimeout(applyFilters, 350);
+    });
+  </script>
+</body>
+</html>
